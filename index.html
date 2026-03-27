@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宝可梦自走棋：3D 巅峰对决</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+    <div id="game-wrapper">
+        <!-- 顶部状态栏 -->
+        <header id="top-bar">
+            <div class="round-counter">
+                <span class="label">ROUND</span>
+                <span id="current-round" class="value">1</span>
+            </div>
+            
+            <div class="global-hp-display">
+                <div class="hp-item player-hp">
+                    <span class="label">我方生命:</span>
+                    <span id="player-global-hp" class="value">200</span>
+                </div>
+                <div class="hp-item enemy-hp">
+                    <span class="label">敌方生命:</span>
+                    <span id="enemy-global-hp" class="value">200</span>
+                </div>
+            </div>
+
+            <div id="game-phase" class="phase-indicator">等待联机...</div>
+            
+            <div class="multiplayer-controls" style="display: flex; gap: 10px; align-items: center;">
+                <button id="btn-copy-link" class="btn secondary" style="padding: 5px 10px; font-size: 12px;">复制邀请链接</button>
+                <span id="connection-status" style="font-size: 12px; color: var(--accent-gold);">未连接</span>
+            </div>
+        </header>
+
+        <!-- 3D 战斗场景 -->
+        <main id="battle-scene">
+            <div class="scene-perspective">
+                <!-- 敌方阵地 -->
+                <div id="enemy-field" class="field">
+                    <div class="slot-row">
+                        <div class="slot enemy-slot" data-index="0"></div>
+                        <div class="slot enemy-slot" data-index="1"></div>
+                        <div class="slot enemy-slot" data-index="2"></div>
+                        <div class="slot enemy-slot" data-index="3"></div>
+                        <div class="slot enemy-slot" data-index="4"></div>
+                        <div class="slot enemy-slot" data-index="5"></div>
+                    </div>
+                </div>
+
+                <div class="field-divider"></div>
+
+                <!-- 我方阵地 -->
+                <div id="player-field" class="field">
+                    <div class="slot-row">
+                        <div class="slot player-slot" data-index="0"></div>
+                        <div class="slot player-slot" data-index="1"></div>
+                        <div class="slot player-slot" data-index="2"></div>
+                        <div class="slot player-slot" data-index="3"></div>
+                        <div class="slot player-slot" data-index="4"></div>
+                        <div class="slot player-slot" data-index="5"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 备战区 (手牌) -->
+        <section id="bench-area">
+            <div class="bench-label">备战席</div>
+            <div class="bench-slots">
+                <div class="slot hand-slot" data-index="0"></div>
+                <div class="slot hand-slot" data-index="1"></div>
+                <div class="slot hand-slot" data-index="2"></div>
+                <div class="slot hand-slot" data-index="3"></div>
+                <div class="slot hand-slot" data-index="4"></div>
+                <div class="slot hand-slot" data-index="5"></div>
+                <div class="slot hand-slot" data-index="6"></div>
+                <div class="slot hand-slot" data-index="7"></div>
+            </div>
+        </section>
+
+        <!-- 底部控制与商店 -->
+        <footer id="control-panel">
+            <div class="player-resources">
+                <div class="energy-display">
+                    <i class="icon-bolt"></i>
+                    <span id="energy-val">5</span>
+                    <small>/ 10</small>
+                </div>
+            </div>
+
+            <div id="shop-container">
+                <div id="shop-cards" class="shop-row">
+                    <div class="slot shop-slot" data-index="0"></div>
+                    <div class="slot shop-slot" data-index="1"></div>
+                    <div class="slot shop-slot" data-index="2"></div>
+                    <div class="slot shop-slot" data-index="3"></div>
+                    <div class="slot shop-slot" data-index="4"></div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="btn-refresh" class="btn secondary">
+                    <span class="cost">1</span> 刷新商店
+                </button>
+                <button id="btn-ready" class="btn primary" disabled>准备完毕</button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- 飘字层 -->
+    <div id="effect-layer"></div>
+
+    <script src="pokemon_data.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
