@@ -6,6 +6,7 @@ const multiState = {
     enemyConnected: false,
     playerReady: false,
     enemyReady: false,
+    battleStarted: false, // 新增：是否已点击开始对战
     lastSyncTime: 0
 };
 
@@ -87,6 +88,7 @@ function syncState() {
         roomData.host = {
             connected: true,
             ready: multiState.playerReady,
+            battleStarted: multiState.battleStarted,
             board: gameState.board,
             globalHp: gameState.playerGlobalHp
         };
@@ -117,6 +119,10 @@ function syncState() {
         // 读取主机状态
         if (roomData.host) {
             multiState.enemyReady = roomData.host.ready || false;
+            // 客机读取主机的开始战斗信号
+            if (roomData.host.battleStarted) {
+                multiState.battleStarted = true;
+            }
             if (!gameState.isBattleRunning && roomData.host.board) {
                 gameState.enemyBoard = roomData.host.board.map(c => c ? {...c} : null);
                 gameState.enemyGlobalHp = roomData.host.globalHp || 200;
@@ -131,10 +137,22 @@ function syncState() {
         document.getElementById('game-phase').innerText = '等待对手准备...';
     } else if (!multiState.playerReady && multiState.enemyReady) {
         document.getElementById('game-phase').innerText = '对手已准备！';
+    } else if (multiState.playerReady && multiState.enemyReady && !gameState.isBattleRunning) {
+        document.getElementById('game-phase').innerText = '双方已准备就绪';
+        
+        // 双方准备完毕后，显示“开始对战”按钮（仅限主机点击控制节奏，或者双方都能点）
+        // 这里设定为主机控制开始
+        if (multiState.isHost && !multiState.battleStarted) {
+            document.getElementById('btn-start-battle').style.display = 'block';
+            document.getElementById('btn-ready').style.display = 'none'; // 隐藏准备完毕按钮，避免重叠
+        } else if (!multiState.isHost && !multiState.battleStarted) {
+            document.getElementById('game-phase').innerText = '等待房主开始...';
+        }
     }
 
-    // 检查双方是否都准备好
-    if (multiState.playerReady && multiState.enemyReady && !gameState.isBattleRunning) {
+    // 检查是否收到开始战斗的信号
+    if (multiState.battleStarted && !gameState.isBattleRunning) {
+        document.getElementById('btn-start-battle').style.display = 'none';
         startBattle();
     } else if (!gameState.isBattleRunning) {
         // 即使没准备好，也要把对方刚放上阵的卡牌渲染出来
@@ -169,8 +187,10 @@ function createCardDOM(card, source, index) {
     if (!card) return null;
     
     const div = document.createElement('div');
+    // 如果是商店里的卡牌，加一个 cursor: pointer 的提示样式
     div.className = `card ${source === 'shop' ? 'shop-card' : ''}`;
-    div.draggable = source !== 'enemyBoard' && !gameState.isBattleRunning;
+    // 商店里的卡牌不允许拖拽，必须点击购买
+    div.draggable = source !== 'shop' && source !== 'enemyBoard' && !gameState.isBattleRunning;
     div.dataset.source = source;
     div.dataset.index = index;
     
@@ -254,8 +274,24 @@ function updateUI() {
 function renderContainer(selector, data, source) {
     const container = document.querySelector(selector);
     if (!container) return;
-    const slots = container.querySelectorAll('.slot');
     
+    // 针对商店特殊处理
+    if (source === 'shop') {
+        const slots = container.querySelectorAll('.shop-slot');
+        slots.forEach((slot, i) => {
+            slot.innerHTML = '';
+            if (data[i]) {
+                const cardDOM = createCardDOM(data[i], source, i);
+                if (cardDOM) {
+                    slot.appendChild(cardDOM);
+                }
+            }
+        });
+        return;
+    }
+
+    // 其他区域
+    const slots = container.querySelectorAll('.slot');
     slots.forEach((slot, i) => {
         slot.innerHTML = '';
         if (data[i]) {
@@ -299,19 +335,24 @@ function bindEvents() {
     
     document.getElementById('btn-ready').onclick = () => {
         if (!gameState.isBattleRunning && multiState.enemyConnected) {
-            if (gameState.board.every(p => !p)) {
-                alert("请先将宝可梦拖拽到上方的战斗区域（蓝线格子）再准备！");
-                return;
-            }
+            // 只要不是全空，就可以准备（允许空城计或者放了卡牌）
             multiState.playerReady = true;
             document.getElementById('game-phase').innerText = '等待对手准备...';
-            document.getElementById('btn-ready').disabled = true;
+            document.getElementById('btn-ready').style.display = 'none';
             document.getElementById('btn-refresh').disabled = true;
             
             // 立即触发一次同步，让对方知道我准备好了
             syncState();
         } else if (!multiState.enemyConnected) {
             alert("请先等待对手加入！");
+        }
+    };
+
+    document.getElementById('btn-start-battle').onclick = () => {
+        if (multiState.isHost && multiState.playerReady && multiState.enemyReady) {
+            multiState.battleStarted = true;
+            document.getElementById('btn-start-battle').style.display = 'none';
+            syncState();
         }
     };
 
@@ -503,8 +544,11 @@ function endBattle(isWin) {
     gameState.round++;
     gameState.phase = "准备阶段";
     multiState.playerReady = false; // 重置准备状态
+    multiState.battleStarted = false; // 重置战斗开始状态
     
+    document.getElementById('btn-ready').style.display = 'block';
     document.getElementById('btn-ready').disabled = false;
+    document.getElementById('btn-start-battle').style.display = 'none';
     document.getElementById('btn-refresh').disabled = false;
     
     gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + 5);
@@ -516,6 +560,7 @@ function endBattle(isWin) {
     
     refreshShop(true);
     updateUI();
+    syncState(); // 强制同步一波新回合状态
 }
 
 
