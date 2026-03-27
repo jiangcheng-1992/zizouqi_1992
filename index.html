@@ -28,6 +28,18 @@
 
             <div id="game-phase" class="phase-indicator">等待联机...</div>
             
+            <div class="battle-stats">
+                <div class="stat-item">
+                    <span class="label" style="font-size: 12px; color: var(--text-gray);">我方战力</span>
+                    <span id="player-power" class="value" style="font-size: 16px; font-weight: bold; color: var(--accent-blue);">0</span>
+                </div>
+                <div class="vs-label">VS</div>
+                <div class="stat-item">
+                    <span class="label" style="font-size: 12px; color: var(--text-gray);">敌方战力</span>
+                    <span id="enemy-power" class="value" style="font-size: 16px; font-weight: bold; color: var(--accent-red);">0</span>
+                </div>
+            </div>
+
             <div class="multiplayer-controls" style="display: flex; gap: 10px; align-items: center;">
                 <button id="btn-copy-link" class="btn secondary" style="padding: 5px 10px; font-size: 12px;">复制邀请链接</button>
                 <span id="connection-status" style="font-size: 12px; color: var(--accent-gold);">未连接</span>
@@ -104,14 +116,19 @@
                 <button id="btn-refresh" class="btn secondary">
                     <span class="cost">1</span> 刷新商店
                 </button>
-                <button id="btn-ready" class="btn primary" disabled>准备完毕</button>
-                <button id="btn-start-battle" class="btn primary" style="display: none; background: #e67e22;">开始对战</button>
+                <button id="btn-ready" class="btn primary" disabled>完成放牌</button>
+                <button id="btn-start-battle" class="btn primary" style="display: none; background: #e67e22;">开始战斗</button>
             </div>
         </footer>
     </div>
 
     <!-- 飘字层 -->
     <div id="effect-layer"></div>
+
+    <!-- 背景音乐 -->
+    <audio id="bgm" loop>
+        <source src="https://play.pokemonshowdown.com/audio/hgss-johto-trainer.mp3" type="audio/mpeg">
+    </audio>
 
     <script src="pokemon_data.js"></script>
     <script src="main.js"></script>

@@ -14,7 +14,7 @@ const multiState = {
 const gameState = {
     round: 1,
     phase: '等待联机', 
-    energy: 5,
+    energy: 3,
     maxEnergy: 10,
     shop: [],
     hand: Array(8).fill(null),
@@ -57,7 +57,7 @@ function initMultiplayer() {
         multiState.isHost = false;
         document.getElementById('connection-status').innerText = "已连接！";
         multiState.enemyConnected = true;
-        gameState.phase = '准备阶段';
+        gameState.phase = '放牌阶段';
         document.getElementById('btn-ready').disabled = false;
     }
 
@@ -79,7 +79,7 @@ function syncState() {
         if (roomData.guest && roomData.guest.connected && !multiState.enemyConnected) {
             multiState.enemyConnected = true;
             document.getElementById('connection-status').innerText = "对手已连接！";
-            gameState.phase = '准备阶段';
+            gameState.phase = '放牌阶段';
             document.getElementById('btn-ready').disabled = false;
             updateUI();
         }
@@ -134,20 +134,26 @@ function syncState() {
 
     // UI上的提示更新
     if (multiState.playerReady && !multiState.enemyReady) {
-        document.getElementById('game-phase').innerText = '等待对手准备...';
+        gameState.phase = '等待对手完成放牌...';
     } else if (!multiState.playerReady && multiState.enemyReady) {
-        document.getElementById('game-phase').innerText = '对手已准备！';
+        gameState.phase = '对手已完成放牌！';
     } else if (multiState.playerReady && multiState.enemyReady && !gameState.isBattleRunning) {
-        document.getElementById('game-phase').innerText = '双方已准备就绪';
+        gameState.phase = '双方已完成放牌';
         
-        // 双方准备完毕后，显示“开始对战”按钮（仅限主机点击控制节奏，或者双方都能点）
+        // 双方完成放牌后，显示“开始战斗”按钮（仅限主机点击控制节奏，或者双方都能点）
         // 这里设定为主机控制开始
         if (multiState.isHost && !multiState.battleStarted) {
             document.getElementById('btn-start-battle').style.display = 'block';
-            document.getElementById('btn-ready').style.display = 'none'; // 隐藏准备完毕按钮，避免重叠
+            document.getElementById('btn-ready').style.display = 'none'; // 隐藏完成放牌按钮，避免重叠
         } else if (!multiState.isHost && !multiState.battleStarted) {
-            document.getElementById('game-phase').innerText = '等待房主开始...';
+            gameState.phase = '等待房主开始...';
         }
+    } else if (!gameState.isBattleRunning && multiState.enemyConnected) {
+        gameState.phase = '放牌阶段';
+    }
+    
+    if (document.getElementById('game-phase')) {
+        document.getElementById('game-phase').innerText = gameState.phase;
     }
 
     // 检查是否收到开始战斗的信号
@@ -169,9 +175,10 @@ function refreshShop(isFree = false) {
     
     gameState.shop = [];
     const tierPool = PokemonData.filter(p => {
-        if (gameState.round < 3) return p.tier === 1;
-        if (gameState.round < 6) return p.tier <= 2;
-        return p.tier <= 3;
+        if (gameState.round <= 3) return p.tier === 1; // 前3轮只给1阶卡牌
+        if (gameState.round <= 6) return p.tier <= 2;
+        if (gameState.round <= 9) return p.tier <= 3;
+        return true; // 10轮及以后全开放
     });
 
     for (let i = 0; i < 5; i++) {
@@ -187,6 +194,16 @@ function createCardDOM(card, source, index) {
     if (!card) return null;
     
     const div = document.createElement('div');
+    
+    // 如果是敌方区域的卡牌，且未开始战斗，则渲染卡背
+    if (source === 'enemyBoard' && !gameState.isBattleRunning) {
+        div.className = 'card card-back';
+        div.style.background = 'linear-gradient(135deg, #2c3e50, #34495e)';
+        div.style.border = '2px solid #7f8c8d';
+        div.innerHTML = `<div style="display:flex; height:100%; align-items:center; justify-content:center; color:#bdc3c7; font-size:30px; font-weight:bold;">?</div>`;
+        return div;
+    }
+    
     // 如果是商店里的卡牌，加一个 cursor: pointer 的提示样式
     div.className = `card ${source === 'shop' ? 'shop-card' : ''}`;
     // 商店里的卡牌不允许拖拽，必须点击购买
@@ -250,19 +267,19 @@ function buyFromShop(shopIdx) {
 
 // 更新UI
 function updateUI() {
-    document.getElementById('energy-val').innerText = gameState.energy;
-    document.getElementById('current-round').innerText = gameState.round;
-    document.getElementById('game-phase').innerText = gameState.phase;
+    if (document.getElementById('energy-val')) document.getElementById('energy-val').innerText = gameState.energy;
+    if (document.getElementById('current-round')) document.getElementById('current-round').innerText = gameState.round;
+    if (document.getElementById('game-phase')) document.getElementById('game-phase').innerText = gameState.phase;
     
     // 更新全局血量
-    document.getElementById('player-global-hp').innerText = gameState.playerGlobalHp;
-    document.getElementById('enemy-global-hp').innerText = gameState.enemyGlobalHp;
+    if (document.getElementById('player-global-hp')) document.getElementById('player-global-hp').innerText = gameState.playerGlobalHp;
+    if (document.getElementById('enemy-global-hp')) document.getElementById('enemy-global-hp').innerText = gameState.enemyGlobalHp;
     
     // 计算战力
     gameState.playerPower = gameState.board.reduce((s, c) => s + (c ? c.attack + c.defense : 0), 0);
     gameState.enemyPower = gameState.enemyBoard.reduce((s, c) => s + (c ? c.attack + c.defense : 0), 0);
-    document.getElementById('player-power').innerText = gameState.playerPower;
-    document.getElementById('enemy-power').innerText = gameState.enemyPower;
+    if (document.getElementById('player-power')) document.getElementById('player-power').innerText = gameState.playerPower;
+    if (document.getElementById('enemy-power')) document.getElementById('enemy-power').innerText = gameState.enemyPower;
     
     // 渲染各个区域
     renderContainer('.shop-row', gameState.shop, 'shop');
@@ -331,13 +348,22 @@ function checkSynthesis() {
 
 // 绑定事件
 function bindEvents() {
+    // 任意点击播放背景音乐
+    document.body.addEventListener('click', () => {
+        const bgm = document.getElementById('bgm');
+        if (bgm && bgm.paused) {
+            bgm.volume = 0.3; // 音量调低一点
+            bgm.play().catch(e => console.log("BGM play failed:", e));
+        }
+    }, { once: true });
+
     document.getElementById('btn-refresh').onclick = () => refreshShop();
     
     document.getElementById('btn-ready').onclick = () => {
         if (!gameState.isBattleRunning && multiState.enemyConnected) {
             // 只要不是全空，就可以准备（允许空城计或者放了卡牌）
             multiState.playerReady = true;
-            document.getElementById('game-phase').innerText = '等待对手准备...';
+            gameState.phase = '等待对手完成放牌...';
             document.getElementById('btn-ready').style.display = 'none';
             document.getElementById('btn-refresh').disabled = true;
             
@@ -368,7 +394,7 @@ function bindEvents() {
     dropZones.forEach(zone => {
         zone.ondragover = e => e.preventDefault();
         zone.ondrop = e => {
-            if (gameState.isBattleRunning || multiState.playerReady) return; // 准备后不可更改阵容
+            if (gameState.isBattleRunning || multiState.playerReady) return; // 完成放牌后不可更改阵容
             const toSource = zone.classList.contains('hand-slot') ? 'hand' : 'board';
             const toIdx = parseInt(zone.dataset.index);
             
@@ -394,61 +420,95 @@ async function startBattle() {
     // 给玩家一点时间看清敌人阵容
     await new Promise(r => setTimeout(r, 1000));
 
+    // 如果开局两边都是空的，或者有一边是空的，直接结算
+    if (checkBattleEnd()) return;
+
     let maxRounds = 20; // 防止死循环
     let currentBattleRound = 0;
+
+    // 记录双方下一个该攻击的宝可梦索引
+    let playerNextAttackerIdx = 0;
+    let enemyNextAttackerIdx = 0;
 
     while (gameState.isBattleRunning && currentBattleRound < maxRounds) {
         currentBattleRound++;
         let actionOccurred = false;
 
-        // 玩家和敌人交替攻击
-        for (let i = 0; i < 6; i++) {
-            if (!gameState.isBattleRunning) break;
-            
-            // 玩家攻击（只有主机执行逻辑，客机只看或者各自执行各自的）
-            // 为了简单，由于双方阵容一致，各自执行相同的战斗逻辑（确定性）
+        // 玩家攻击回合
+        while (playerNextAttackerIdx < 6) {
+            let i = playerNextAttackerIdx;
+            playerNextAttackerIdx++;
             if (gameState.board[i] && gameState.board[i].currentDef > 0) {
                 let targetIdx = gameState.enemyBoard.findIndex(e => e && e.currentDef > 0);
                 if (targetIdx !== -1) {
                     await performAttack(i, targetIdx, true);
                     actionOccurred = true;
                     if (checkBattleEnd()) return;
+                    break; // 玩家攻击完毕，轮到敌人
                 }
             }
-            
-            // 敌人攻击
+        }
+        
+        // 敌人攻击回合
+        while (enemyNextAttackerIdx < 6) {
+            let i = enemyNextAttackerIdx;
+            enemyNextAttackerIdx++;
             if (gameState.enemyBoard[i] && gameState.enemyBoard[i].currentDef > 0) {
                 let targetIdx = gameState.board.findIndex(p => p && p.currentDef > 0);
                 if (targetIdx !== -1) {
                     await performAttack(i, targetIdx, false);
                     actionOccurred = true;
                     if (checkBattleEnd()) return;
+                    break; // 敌人攻击完毕，轮到玩家
                 }
             }
         }
         
-        if (!actionOccurred) break; // 没有人能攻击了
+        // 如果双方都遍历完了一轮（0-5），重置索引，开始新一轮的循环
+        if (playerNextAttackerIdx >= 6 && enemyNextAttackerIdx >= 6) {
+            playerNextAttackerIdx = 0;
+            enemyNextAttackerIdx = 0;
+        }
+        
+        // 如果双方都没人能攻击（可能都死光了，或者虽然索引没到底但都没合法的攻击动作），退出循环防死锁
+        if (!actionOccurred && playerNextAttackerIdx === 0 && enemyNextAttackerIdx === 0) {
+            break; 
+        }
     }
     
-    // 超时平局算输
+    // 如果达到了最大回合数或者陷入无法攻击的死锁，强制判定平局
     if (gameState.isBattleRunning) {
-        alert("回合超时，你输了本轮！");
-        endBattle(false);
+        if (!checkBattleEnd()) {
+            setTimeout(() => { 
+                alert("本轮平局！"); 
+                endBattle("draw"); 
+            }, 500);
+        }
     }
 }
 
 function checkBattleEnd() {
-    if (gameState.enemyBoard.every(e => !e || e.currentDef <= 0)) {
+    let playerAlive = gameState.board.some(p => p && p.currentDef > 0);
+    let enemyAlive = gameState.enemyBoard.some(e => e && e.currentDef > 0);
+
+    if (!enemyAlive && playerAlive) {
         setTimeout(() => { 
             alert("你赢了本轮！"); 
             endBattle(true); 
         }, 500);
         return true;
     }
-    if (gameState.board.every(p => !p || p.currentDef <= 0)) {
+    if (!playerAlive && enemyAlive) {
         setTimeout(() => { 
             alert("你输了本轮！"); 
             endBattle(false); 
+        }, 500);
+        return true;
+    }
+    if (!playerAlive && !enemyAlive) {
+        setTimeout(() => { 
+            alert("本轮平局！"); 
+            endBattle("draw"); 
         }, 500);
         return true;
     }
@@ -474,7 +534,7 @@ async function performAttack(attackerIdx, targetIdx, isPlayerAttacking) {
 
     // 计算伤害: 直接用攻击力减去对方防御力（当前血量）
     let dmg = attacker.attack;
-    target.currentDef -= dmg;
+    target.currentDef = Math.max(0, target.currentDef - dmg);
     
     // 受击特效与飘字
     targetSlot.firstChild.classList.add('anim-hit');
@@ -518,13 +578,14 @@ function endBattle(isWin) {
     gameState.isBattleRunning = false;
     
     // 计算扣血逻辑
-    if (isWin) {
+    if (isWin === true) {
         const survivors = gameState.board.filter(p => p && p.currentDef > 0).length;
         gameState.enemyGlobalHp -= survivors * 10;
-    } else {
+    } else if (isWin === false) {
         const survivors = gameState.enemyBoard.filter(e => e && e.currentDef > 0).length;
         gameState.playerGlobalHp -= survivors * 10;
     }
+    // 如果 isWin === "draw"，不扣除任何生命值
     
     updateUI();
 
@@ -542,7 +603,7 @@ function endBattle(isWin) {
     }
 
     gameState.round++;
-    gameState.phase = "准备阶段";
+    gameState.phase = "放牌阶段";
     multiState.playerReady = false; // 重置准备状态
     multiState.battleStarted = false; // 重置战斗开始状态
     
@@ -551,7 +612,8 @@ function endBattle(isWin) {
     document.getElementById('btn-start-battle').style.display = 'none';
     document.getElementById('btn-refresh').disabled = false;
     
-    gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + 5);
+    // 每轮增加5点能量，最高不超过10分
+    gameState.energy = Math.min(10, gameState.energy + 5);
     
     gameState.board.forEach(c => { if(c) c.currentDef = c.defense; });
     

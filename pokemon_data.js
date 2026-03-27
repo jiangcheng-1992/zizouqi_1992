@@ -84,11 +84,6 @@ const PokemonData = [
     { id: 1501, pokeId: 39, name: "胖丁", type: "fairy", tier: 1, attack: 7, defense: 11, cost: 1, next: 1502, skillDesc: "回合末相邻友军回3血" },
     { id: 1502, pokeId: 40, name: "胖可丁", type: "fairy", tier: 2, attack: 12, defense: 17, cost: 2, next: null, skillDesc: "全员回4血,附带概率催眠" },
 
-    // 16. 一般系
-    { id: 1601, pokeId: 10, name: "绿毛虫(一般)", type: "normal", tier: 1, attack: 7, defense: 6, cost: 1, next: 1602, skillDesc: "通用合成素材" },
-    { id: 1602, pokeId: 11, name: "铁甲蛹(一般)", type: "normal", tier: 2, attack: 8, defense: 15, cost: 2, next: 1603, skillDesc: "极高防御成长" },
-    { id: 1603, pokeId: 12, name: "巴大蝶(一般)", type: "normal", tier: 3, attack: 16, defense: 12, cost: 3, next: null, skillDesc: "控制型选手" },
-
     // 17. 恶系
     { id: 1701, pokeId: 198, name: "黑暗鸦", type: "dark", tier: 1, attack: 11, defense: 8, cost: 1, next: 1702, skillDesc: "10%概率造成破甲效果" },
     { id: 1702, pokeId: 430, name: "乌鸦头头", type: "dark", tier: 2, attack: 17, defense: 14, cost: 2, next: null, skillDesc: "20%概率造成高额破甲" },
