@@ -94,8 +94,9 @@ function syncState() {
         // 读取客机状态
         if (roomData.guest) {
             multiState.enemyReady = roomData.guest.ready || false;
-            if (multiState.enemyReady && !gameState.isBattleRunning) {
-                // 客机传来的板子需要反转一下显示（让对面从上往下看也是正常的，但对战双方位置是对称的）
+            // 只要没在战斗中，就实时同步对方的面板
+            if (!gameState.isBattleRunning && roomData.guest.board) {
+                // 将对方的板子直接反转过来，确保索引一致
                 gameState.enemyBoard = roomData.guest.board.map(c => c ? {...c} : null);
                 gameState.enemyGlobalHp = roomData.guest.globalHp || 200;
             }
@@ -116,7 +117,7 @@ function syncState() {
         // 读取主机状态
         if (roomData.host) {
             multiState.enemyReady = roomData.host.ready || false;
-            if (multiState.enemyReady && !gameState.isBattleRunning) {
+            if (!gameState.isBattleRunning && roomData.host.board) {
                 gameState.enemyBoard = roomData.host.board.map(c => c ? {...c} : null);
                 gameState.enemyGlobalHp = roomData.host.globalHp || 200;
             }
@@ -125,9 +126,19 @@ function syncState() {
     
     localStorage.setItem(roomKey, JSON.stringify(roomData));
 
+    // UI上的提示更新
+    if (multiState.playerReady && !multiState.enemyReady) {
+        document.getElementById('game-phase').innerText = '等待对手准备...';
+    } else if (!multiState.playerReady && multiState.enemyReady) {
+        document.getElementById('game-phase').innerText = '对手已准备！';
+    }
+
     // 检查双方是否都准备好
-    if (multiState.playerReady && multiState.enemyReady && !gameState.isBattleRunning && gameState.phase === '等待对手...') {
+    if (multiState.playerReady && multiState.enemyReady && !gameState.isBattleRunning) {
         startBattle();
+    } else if (!gameState.isBattleRunning) {
+        // 即使没准备好，也要把对方刚放上阵的卡牌渲染出来
+        updateUI();
     }
 }
 
@@ -293,10 +304,12 @@ function bindEvents() {
                 return;
             }
             multiState.playerReady = true;
-            gameState.phase = '等待对手...';
+            document.getElementById('game-phase').innerText = '等待对手准备...';
             document.getElementById('btn-ready').disabled = true;
             document.getElementById('btn-refresh').disabled = true;
-            updateUI();
+            
+            // 立即触发一次同步，让对方知道我准备好了
+            syncState();
         } else if (!multiState.enemyConnected) {
             alert("请先等待对手加入！");
         }
