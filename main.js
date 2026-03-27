@@ -133,23 +133,25 @@ function syncState() {
     localStorage.setItem(roomKey, JSON.stringify(roomData));
 
     // UI上的提示更新
-    if (multiState.playerReady && !multiState.enemyReady) {
-        gameState.phase = '等待对手完成放牌...';
-    } else if (!multiState.playerReady && multiState.enemyReady) {
-        gameState.phase = '对手已完成放牌！';
-    } else if (multiState.playerReady && multiState.enemyReady && !gameState.isBattleRunning) {
-        gameState.phase = '双方已完成放牌';
-        
-        // 双方完成放牌后，显示“开始战斗”按钮（仅限主机点击控制节奏，或者双方都能点）
-        // 这里设定为主机控制开始
-        if (multiState.isHost && !multiState.battleStarted) {
-            document.getElementById('btn-start-battle').style.display = 'block';
-            document.getElementById('btn-ready').style.display = 'none'; // 隐藏完成放牌按钮，避免重叠
-        } else if (!multiState.isHost && !multiState.battleStarted) {
-            gameState.phase = '等待房主开始...';
+    if (!gameState.isBattleRunning && multiState.enemyConnected) {
+        if (multiState.playerReady && !multiState.enemyReady) {
+            gameState.phase = '等待对手完成放牌...';
+        } else if (!multiState.playerReady && multiState.enemyReady) {
+            gameState.phase = '对手已完成放牌！';
+        } else if (multiState.playerReady && multiState.enemyReady) {
+            gameState.phase = '双方已完成放牌';
+            
+            // 双方完成放牌后，显示“开始战斗”按钮（仅限主机点击控制节奏，或者双方都能点）
+            // 这里设定为主机控制开始
+            if (multiState.isHost && !multiState.battleStarted) {
+                document.getElementById('btn-start-battle').style.display = 'block';
+                document.getElementById('btn-ready').style.display = 'none'; // 隐藏完成放牌按钮，避免重叠
+            } else if (!multiState.isHost && !multiState.battleStarted) {
+                gameState.phase = '等待房主开始...';
+            }
+        } else {
+            gameState.phase = '放牌阶段';
         }
-    } else if (!gameState.isBattleRunning && multiState.enemyConnected) {
-        gameState.phase = '放牌阶段';
     }
     
     if (document.getElementById('game-phase')) {
