@@ -1,13 +1,14 @@
-// 联机状态管理
+// 多人对战状态
 const multiState = {
     roomId: null,
-    playerId: null,
     isHost: false,
+    playerId: null,
     enemyConnected: false,
     playerReady: false,
     enemyReady: false,
     battleStarted: false, // 新增：是否已点击开始对战
-    lastSyncTime: 0
+    peer: null, // PeerJS 实例
+    conn: null  // PeerJS 数据连接
 };
 
 // 游戏状态
@@ -39,99 +40,113 @@ function init() {
     bindEvents();
 }
 
-// 联机同步逻辑 (基于 LocalStorage 模拟 WebSocket)
+// 联机同步逻辑 (基于 PeerJS)
 function initMultiplayer() {
     const urlParams = new URLSearchParams(window.location.search);
     multiState.roomId = urlParams.get('room');
     
-    if (!multiState.roomId) {
-        // 创建新房间 (作为主机)
-        multiState.roomId = Math.random().toString(36).substring(2, 8);
-        multiState.playerId = 'host';
-        multiState.isHost = true;
-        window.history.replaceState({}, '', `?room=${multiState.roomId}`);
-        document.getElementById('connection-status').innerText = "等待对手加入...";
-    } else {
-        // 加入房间 (作为客机)
-        multiState.playerId = 'guest';
-        multiState.isHost = false;
-        document.getElementById('connection-status').innerText = "已连接！";
-        multiState.enemyConnected = true;
-        gameState.phase = '放牌阶段';
-        document.getElementById('btn-ready').disabled = false;
-    }
+    // 初始化 PeerJS
+    // 使用公开免费的 PeerJS 服务器
+    multiState.peer = new Peer({
+        debug: 2
+    });
 
-    // 启动轮询同步
+    multiState.peer.on('open', (id) => {
+        console.log('My peer ID is: ' + id);
+        
+        if (!multiState.roomId) {
+            // 没有 roomId，说明我是房主，把自己的 peer ID 作为 roomId
+            multiState.roomId = id;
+            multiState.isHost = true;
+            multiState.playerId = 'host';
+            window.history.replaceState({}, '', `?room=${multiState.roomId}`);
+            document.getElementById('connection-status').innerText = "等待对手加入...";
+            
+            // 房主监听连接
+            multiState.peer.on('connection', (conn) => {
+                console.log('Guest connected!');
+                setupConnection(conn);
+            });
+            
+        } else {
+            // 有 roomId，说明我是客机，主动连接房主
+            multiState.isHost = false;
+            multiState.playerId = 'guest';
+            document.getElementById('connection-status').innerText = "正在连接房主...";
+            
+            const conn = multiState.peer.connect(multiState.roomId);
+            conn.on('open', () => {
+                console.log('Connected to host!');
+                setupConnection(conn);
+            });
+        }
+    });
+    
+    multiState.peer.on('error', (err) => {
+        console.error('PeerJS error:', err);
+        document.getElementById('connection-status').innerText = "连接失败: " + err.type;
+        if (err.type === 'peer-unavailable') {
+            alert('找不到房主，可能房间已解散！');
+        }
+    });
+}
+
+function setupConnection(conn) {
+    multiState.conn = conn;
+    multiState.enemyConnected = true;
+    document.getElementById('connection-status').innerText = multiState.isHost ? "对手已连接！" : "已连接！";
+    gameState.phase = '放牌阶段';
+    document.getElementById('btn-ready').disabled = false;
+    updateUI();
+
+    // 监听数据接收
+    conn.on('data', (data) => {
+        handleSyncData(data);
+    });
+    
+    // 连接断开处理
+    conn.on('close', () => {
+        alert("对手已断开连接！");
+        window.location.href = window.location.pathname;
+    });
+    
+    // 开始定时同步心跳（不再依赖 localStorage）
     setInterval(syncState, 500);
 }
 
+// 通过 P2P 发送状态
 function syncState() {
-    const roomKey = `pkmn_room_${multiState.roomId}`;
-    
-    // 读取当前房间状态
-    let roomData = JSON.parse(localStorage.getItem(roomKey) || '{}');
-    
-    if (multiState.isHost) {
-        // 主机逻辑
-        if (!roomData.host) roomData.host = {};
-        
-        // 检查客机是否加入
-        if (roomData.guest && roomData.guest.connected && !multiState.enemyConnected) {
-            multiState.enemyConnected = true;
-            document.getElementById('connection-status').innerText = "对手已连接！";
-            gameState.phase = '放牌阶段';
-            document.getElementById('btn-ready').disabled = false;
-            updateUI();
-        }
+    if (!multiState.enemyConnected || !multiState.conn) return;
 
-        // 写入主机状态
-        roomData.host = {
-            connected: true,
-            ready: multiState.playerReady,
-            battleStarted: multiState.battleStarted,
-            board: gameState.board,
-            globalHp: gameState.playerGlobalHp
-        };
-        
-        // 读取客机状态
-        if (roomData.guest) {
-            multiState.enemyReady = roomData.guest.ready || false;
-            // 只要没在战斗中，就实时同步对方的面板
-            if (!gameState.isBattleRunning && roomData.guest.board) {
-                // 将对方的板子直接反转过来，确保索引一致
-                gameState.enemyBoard = roomData.guest.board.map(c => c ? {...c} : null);
-                gameState.enemyGlobalHp = roomData.guest.globalHp || 200;
-            }
-        }
-        
-    } else {
-        // 客机逻辑
-        if (!roomData.guest) roomData.guest = {};
-        
-        // 写入客机状态
-        roomData.guest = {
-            connected: true,
-            ready: multiState.playerReady,
-            board: gameState.board,
-            globalHp: gameState.playerGlobalHp
-        };
-        
-        // 读取主机状态
-        if (roomData.host) {
-            multiState.enemyReady = roomData.host.ready || false;
-            // 客机读取主机的开始战斗信号
-            if (roomData.host.battleStarted) {
-                multiState.battleStarted = true;
-            }
-            if (!gameState.isBattleRunning && roomData.host.board) {
-                gameState.enemyBoard = roomData.host.board.map(c => c ? {...c} : null);
-                gameState.enemyGlobalHp = roomData.host.globalHp || 200;
-            }
-        }
+    const myData = {
+        ready: multiState.playerReady,
+        board: gameState.board,
+        globalHp: gameState.playerGlobalHp,
+        battleStarted: multiState.battleStarted
+    };
+    
+    multiState.conn.send(myData);
+}
+
+// 处理收到的 P2P 状态
+function handleSyncData(data) {
+    multiState.enemyReady = data.ready || false;
+    
+    if (data.battleStarted && !multiState.isHost) {
+        multiState.battleStarted = true;
     }
     
-    localStorage.setItem(roomKey, JSON.stringify(roomData));
+    // 只要没在战斗中，就实时同步对方的面板
+    if (!gameState.isBattleRunning && data.board) {
+        // 将对方的板子直接反转过来，确保索引一致
+        gameState.enemyBoard = data.board.map(c => c ? {...c} : null);
+        gameState.enemyGlobalHp = data.globalHp || 200;
+    }
+    
+    checkPhaseUpdate();
+}
 
+function checkPhaseUpdate() {
     // UI上的提示更新
     if (!gameState.isBattleRunning && multiState.enemyConnected) {
         if (multiState.playerReady && !multiState.enemyReady) {
@@ -144,8 +159,12 @@ function syncState() {
             // 双方完成放牌后，显示“开始战斗”按钮（仅限主机点击控制节奏，或者双方都能点）
             // 这里设定为主机控制开始
             if (multiState.isHost && !multiState.battleStarted) {
-                document.getElementById('btn-start-battle').style.display = 'block';
-                document.getElementById('btn-ready').style.display = 'none'; // 隐藏完成放牌按钮，避免重叠
+                if (document.getElementById('btn-start-battle')) {
+                    document.getElementById('btn-start-battle').style.display = 'block';
+                }
+                if (document.getElementById('btn-ready')) {
+                    document.getElementById('btn-ready').style.display = 'none'; // 隐藏完成放牌按钮，避免重叠
+                }
             } else if (!multiState.isHost && !multiState.battleStarted) {
                 gameState.phase = '等待房主开始...';
             }
@@ -160,7 +179,9 @@ function syncState() {
 
     // 检查是否收到开始战斗的信号
     if (multiState.battleStarted && !gameState.isBattleRunning) {
-        document.getElementById('btn-start-battle').style.display = 'none';
+        if (document.getElementById('btn-start-battle')) {
+            document.getElementById('btn-start-battle').style.display = 'none';
+        }
         startBattle();
     } else if (!gameState.isBattleRunning) {
         // 即使没准备好，也要把对方刚放上阵的卡牌渲染出来

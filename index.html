@@ -2,8 +2,13 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>宝可梦自走棋：3D 巅峰对决</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>宝可梦自走棋：3D 激战</title>
+    <!-- 预加载关键字体和图片 -->
+    <link rel="preconnect" href="https://raw.githubusercontent.com">
+    <link rel="preload" as="image" href="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/25.png">
+    <link rel="preload" as="image" href="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/1.png">
+    <link rel="preload" as="image" href="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/4.png">
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="dark-theme">
@@ -126,11 +131,12 @@
     <div id="effect-layer"></div>
 
     <!-- 背景音乐 -->
-    <audio id="bgm" loop>
+    <audio id="bgm" loop preload="none">
         <source src="https://play.pokemonshowdown.com/audio/hgss-johto-trainer.mp3" type="audio/mpeg">
     </audio>
 
-    <script src="pokemon_data.js"></script>
-    <script src="main.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="pokemon_data.js" defer></script>
+    <script src="main.js" defer></script>
 </body>
 </html>
